@@ -4,6 +4,60 @@ import streamlit as st
 from pandas import DataFrame, concat
 
 
+class Data:
+    def __init__(
+        self,
+        age,
+        usage,
+        plan,
+        time_contract,
+        customer_satisfaction,
+        monthly_value,
+        model,
+        ohe,
+        scaler,
+    ):
+        self.age = age
+        self.usage = usage
+        self.plan = plan
+        self.time_contract = time_contract
+        self.customer_satisfaction = customer_satisfaction
+        self.monthly_value = monthly_value
+        self.model = model
+        self.ohe = ohe
+        self.scaler = scaler
+        self.df_processed = None
+
+    def preprocess(self):
+        df = DataFrame(
+            {
+                "age": self.age,
+                "usage": self.usage,
+                "plan": self.plan,
+                "time_contract": self.time_contract,
+                "customer_satisfaction": self.customer_satisfaction,
+                "monthly_value": self.monthly_value,
+            },
+            index=[0],
+        )
+
+        categorical = ["plan", "time_contract"]
+        df_ohe = DataFrame(
+            self.ohe.transform(df[categorical].values),
+            columns=self.ohe.get_feature_names_out(categorical),
+        )
+
+        df_processed = concat([df.drop(categorical, axis=1), df_ohe], axis=1)
+        df_processed["age"] = self.scaler.transform(df_processed[["age"]].values)
+
+        self.df_processed = df_processed
+
+    def predict(self):
+        self.preprocess()
+
+        return model.predict(self.df_processed)[0]
+
+
 @st.cache_resource
 def load_artifacts():
     try:
@@ -53,34 +107,32 @@ customer_satisfaction = container.number_input(
 
 monthly_value = container.number_input("Gasto mensal", value=120)
 
-df = DataFrame(
-    {
-        "age": age,
-        "usage": usage,
-        "plan": plan,
-        "time_contract": time_contract,
-        "customer_satisfaction": customer_satisfaction,
-        "monthly_value": monthly_value,
-    },
-    index=[0],
-)
-
-categorical = ["plan", "time_contract"]
-df_ohe = DataFrame(
-    ohe.transform(df[categorical].values),
-    columns=ohe.get_feature_names_out(categorical),
-)
-df_processed = concat([df.drop(categorical, axis=1), df_ohe], axis=1)
-df_processed["age"] = scaler.transform(df_processed[["age"]].values)
-
 click = container.button(
     "Prever churn",
 )
 
 if click:
-    print(df_processed.values)
+    data = Data(
+        age,
+        usage,
+        plan,
+        time_contract,
+        customer_satisfaction,
+        monthly_value,
+        model,
+        ohe,
+        scaler,
+    )
 
-    predict = model.predict(df_processed)[0]
+    print(
+        data.age,
+        data.usage,
+        data.plan,
+        data.time_contract,
+        data.customer_satisfaction,
+        data.monthly_value,
+    )
+    predict = data.predict()
 
     if predict == 0:
         st.success("O Cliente não irá cancelar", icon="✅")
